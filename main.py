@@ -1,12 +1,14 @@
 
+import re
 import time
 import requests
+import numpy as np
 import pandas as pd
 from selectorlib import Extractor
 from datetime import datetime, timedelta
 
 
-class ReadSheets:
+class HandleSheets:
 
     def __init__(self, sheet_url):
         self.url = sheet_url
@@ -85,10 +87,116 @@ class ExtractInfo:
         return all_details, all_links
 
 
+def re_match():
+
+    price_pattern = re.compile(r'\$([\d,]+)')
+    bed_pattern = re.compile(r'(\d+)\s*bed')
+    bath_pattern = re.compile(r'(\d+(\.\d+)?)\s*bath')
+    sqft_pattern = re.compile(r'([\d,]+)\s*sqft')
+    lot_pattern = re.compile(r'([\d,]+)\s*sqft\s*lot')
+    address_pattern = re.compile(r'(\d+)\s*([A-Za-z\s]+),\s*([A-Za-z\s]+)\s*(\d+)')
+
+    return price_pattern, bed_pattern, bath_pattern, sqft_pattern, lot_pattern, address_pattern
+
+
+def handle_df(price_pattern, bed_pattern, bath_pattern,
+              sqft_pattern, lot_pattern, address_pattern, all_details, all_links,
+              df, df_list1, df_list2, df_list3):
+
+    for i in range(len(all_details)):
+        for j, input_string in enumerate(all_details[i]['houses']):
+
+            price_match = price_pattern.search(input_string)
+            bed_match = bed_pattern.search(input_string)
+            bath_match = bath_pattern.search(input_string)
+            sqft_match = sqft_pattern.search(input_string)
+            lot_match = lot_pattern.search(input_string)
+            address_match = address_pattern.search(input_string)
+
+            price = price_match.group(1) if price_match else None
+            bed = bed_match.group(1) if bed_match else None
+            bath = bath_match.group(1) if bath_match else None
+            sqft = sqft_match.group(1) if sqft_match else None
+            lot = lot_match.group(1) if lot_match else None
+            address = f"{address_match.group(1)} {address_match.group(2)}, {address_match.group(3)} {address_match.group(4)}" if address_match else None
+            house_url = 'www.realtor.com' + all_links[i]['houses'][j]['url']
+            try:
+                price_sqft = round(float(price.replace(",", "")) / float(sqft.replace(",", "")), 2)
+            except:
+                price_sqft = 'N/A'
+            formatted_date_time = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
+            date_part, time_part = formatted_date_time.split()
+
+            tab = ''
+            for k in df.iloc[:, 0]:
+                if k in address:
+                    selected_df = df.loc[df.iloc[:, 0] == k]
+                    tab = selected_df.iloc[:, 1].values[0]
+            if tab == 'List1':
+                if address in df_list1['Address']:
+                    prev_df = df[df_list1['Address'] == address]
+                    date_created = prev_df['Date Created']
+                    time_created = prev_df['Time Created']
+                    new_df = pd.DataFrame(
+                        {'Address': [address], 'Link': [house_url], 'Price': [f'${price}'], 'Bed': [bed],
+                         'Bath': [bath], 'Sq Ft': [f'{sqft} sqft'], 'Lot': [f'{lot} sqft'],
+                         'Price/Sq ft': [f'${price_sqft}'], 'Date Created': [date_created],
+                         'Time Created': [time_created], 'Date Updated': [date_part], 'Time Updated': [time_part]})
+                    df_list1 = pd.concat([df_list1, new_df], ignore_index=True)
+                    df_list1 = df_list1.drop_duplicates(subset=['Address'], keep='last')
+                else:
+                    new_df = pd.DataFrame(
+                        {'Address': [address], 'Link': [house_url], 'Price': [f'${price}'], 'Bed': [bed],
+                         'Bath': [bath], 'Sq Ft': [f'{sqft} sqft'], 'Lot': [f'{lot} sqft'],
+                         'Price/Sq ft': [f'${price_sqft}'], 'Date Created': [date_part], 'Time Created': [time_part],
+                         'Date Updated': [np.nan], 'Time Updated': [np.nan]})
+                    df_list1 = pd.concat([df_list1, new_df], ignore_index=True)
+            elif tab == 'List2':
+                if address in df_list2['Address']:
+                    prev_df = df[df_list2['Address'] == address]
+                    date_created = prev_df['Date Created']
+                    time_created = prev_df['Time Created']
+                    new_df = pd.DataFrame(
+                        {'Address': [address], 'Link': [house_url], 'Price': [f'${price}'], 'Bed': [bed],
+                         'Bath': [bath], 'Sq Ft': [f'{sqft} sqft'], 'Lot': [f'{lot} sqft'],
+                         'Price/Sq ft': [f'${price_sqft}'], 'Date Created': [date_created],
+                         'Time Created': [time_created], 'Date Updated': [date_part], 'Time Updated': [time_part]})
+                    df_list2 = pd.concat([df_list2, new_df], ignore_index=True)
+                    df_list2 = df_list2.drop_duplicates(subset=['Address'], keep='last')
+                else:
+                    new_df = pd.DataFrame(
+                        {'Address': [address], 'Link': [house_url], 'Price': [f'${price}'], 'Bed': [bed],
+                         'Bath': [bath], 'Sq Ft': [f'{sqft} sqft'], 'Lot': [f'{lot} sqft'],
+                         'Price/Sq ft': [f'${price_sqft}'], 'Date Created': [date_part], 'Time Created': [time_part],
+                         'Date Updated': [np.nan], 'Time Updated': [np.nan]})
+                    df_list2 = pd.concat([df_list2, new_df], ignore_index=True)
+            else:
+                if address in df_list3['Address']:
+                    prev_df = df[df_list3['Address'] == address]
+                    date_created = prev_df['Date Created']
+                    time_created = prev_df['Time Created']
+                    new_df = pd.DataFrame(
+                        {'Address': [address], 'Link': [house_url], 'Price': [f'${price}'], 'Bed': [bed],
+                         'Bath': [bath], 'Sq Ft': [f'{sqft} sqft'], 'Lot': [f'{lot} sqft'],
+                         'Price/Sq ft': [f'${price_sqft}'], 'Date Created': [date_created],
+                         'Time Created': [time_created], 'Date Updated': [date_part], 'Time Updated': [time_part]})
+                    df_list3 = pd.concat([df_list3, new_df], ignore_index=True)
+                    df_list3 = df_list3.drop_duplicates(subset=['Address'], keep='last')
+                else:
+                    new_df = pd.DataFrame(
+                        {'Address': [address], 'Link': [house_url], 'Price': [f'${price}'], 'Bed': [bed],
+                         'Bath': [bath], 'Sq Ft': [f'{sqft} sqft'], 'Lot': [f'{lot} sqft'],
+                         'Price/Sq ft': [f'${price_sqft}'], 'Date Created': [date_part], 'Time Created': [time_part],
+                         'Date Updated': [np.nan], 'Time Updated': [np.nan]})
+                    df_list3 = pd.concat([df_list3, new_df], ignore_index=True)
+
+    return df_list1, df_list2, df_list3
+
+
 def main():
 
-    sheets_link = 'https://docs.google.com/spreadsheets/d/1bbh3qYXWwy9qM9I_ZkV2WWZ' \
-                  'gEGy1xStWpCCptu8bZZo/edit#gid=659590753'
+    sheets_link = 'https://docs.google.com/spreadsheets/d/1Gy4krTMIvShtRSpybOk2z8uE79DRWgSrEJCbR5Uh_Ug/' \
+                  'edit#gid=1893615227'
 
 
 if __name__ == '__main__':
